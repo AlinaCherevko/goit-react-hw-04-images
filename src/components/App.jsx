@@ -1,124 +1,130 @@
-import React, { Component } from 'react';
-import Searchbar from './Searchbar/Searchbar';
+import React, { useEffect, useState } from 'react';
+
+import { Searchbar } from './Searchbar/Searchbar';
 import ImageGallery from './ImageGallery/ImageGallery';
 import Button from './Button/Button';
 import Loader from './Loader/Loader';
 import { getData } from 'servises/api';
-import Modal from './Modal/Modal';
+import { Modal } from './Modal/Modal';
 
-export class App extends Component {
-  state = {
-    searchValue: '',
-    hits: [],
-    status: 'idle',
-    page: 1,
-    isVisibleLoadMoreBtn: false,
-    isOpenModal: false,
-    large: '',
-    tags: '',
-  };
+export const App = () => {
+  const [searchValue, setSearchValue] = useState('');
+  const [hits, setHits] = useState([]);
+  const [status, setStatus] = useState('idle');
+  const [page, setPage] = useState(1);
+  const [isVisibleLoadMoreBtn, setIsVisibleLoadMoreBtn] = useState(false);
+  const [isOpenModal, setIsOpenModal] = useState(false);
+  const [largeImageURL, setLargeImageURL] = useState('');
+  const [tags, setTags] = useState('');
+  const [error, setError] = useState(null);
 
   //ств метод який буде забирати значееня яке ми вводимо у форму
   //також ми скидуємо стейт до початкових значень
-  handleSearch = value => {
-    this.setState({
-      searchValue: value,
-      hits: [],
-      status: 'idle',
-      page: 1,
-      large: '',
-      tags: '',
-      isOpenModal: false,
-      isVisibleLoadMoreBtn: false,
-    });
+  const handleSearch = value => {
+    setSearchValue(value);
+    setHits([]);
+    setStatus('idle');
+    setPage(1);
+    setLargeImageURL('');
+    setTags('');
+    setIsOpenModal(false);
+    setIsVisibleLoadMoreBtn(false);
   };
-  onOpenModal = (largeImageURL, tags) => {
-    this.setState({ largeImageURL, tags, isOpenModal: true });
-    // console.log('hello');
+  const onOpenModal = (largeImageURL, tags) => {
+    setLargeImageURL(largeImageURL);
+    setTags(tags);
+    setIsOpenModal(true);
   };
-  onCloseModal = () => {
-    this.setState({ isOpenModal: false });
-    // console.log('hello');
+  const onCloseModal = () => {
+    setIsOpenModal(false);
   };
-  onLoadMoreClick = () => {
-    this.setState(prevState => ({
-      page: prevState.page + 1,
-    }));
+  const onLoadMoreClick = () => {
+    setPage(prevState => prevState + 1);
   };
-  componentDidMount = () => {
-    // Json.parse() ми огортаємо в try, catch щоб уникнути падіння скрипта якщо прочитали невалідний JSON
-    try {
-      const stringifiedHits = localStorage.getItem('hits');
-      const hits = JSON.parse(stringifiedHits);
-      this.setState({ hits });
-    } catch (error) {
-      this.setState({ error: error.message, status: 'error' });
-      console.log(error.message);
-    }
-  };
-  componentDidUpdate = async (prevProps, prevState) => {
-    if (
-      this.state.searchValue !== prevState.searchValue ||
-      this.state.page !== prevState.page
-    ) {
-      try {
-        this.setState({ status: 'pending' });
-        const { hits, totalHits } = await getData(
-          this.state.searchValue,
-          this.state.page
-        );
 
-        this.setState(prevState => ({
-          status: 'success',
-          hits: [...prevState.hits, ...hits],
-          isVisibleLoadMoreBtn:
-            this.state.page < Math.ceil(totalHits / hits.length),
-        }));
-        if (hits.length === 0 || this.state.searchValue === '') {
+  useEffect(() => {
+    if (hits.length === 0 || searchValue === '') {
+      return;
+    }
+    const getHits = async () => {
+      try {
+        setStatus('pending');
+        const { hits } = await getData();
+
+        setStatus('success');
+        setHits(hits);
+      } catch (error) {
+        setStatus('error');
+        setError(error.message);
+      }
+    };
+
+    getHits();
+  }, []);
+
+  useEffect(() => {
+    if (searchValue === 0) return;
+    const getHitsByQuery = async () => {
+      try {
+        setStatus('pending');
+
+        const { hits, totalHits } = await getData(searchValue, page);
+
+        setHits(prevState => [...prevState, ...hits]);
+        setStatus('success');
+        setIsVisibleLoadMoreBtn(page < Math.ceil(totalHits / hits.length));
+
+        if (hits.length === 0) {
           alert(
             'Sorry, there are no images matching your search query. Please try again.'
           );
-
           return;
         }
       } catch (error) {
-        this.setState({ error: error.message, status: 'error' });
+        setStatus('error');
+        setError(error.message);
+        alert(
+          `Oops... Your request was rejected with the error: ${error.message}`
+        );
         console.log(error.message);
       }
-    }
-    if (this.state.hits !== prevState.hits) {
-      const stringifiedHits = JSON.stringify(this.state.hits);
-      localStorage.setItem('hits', stringifiedHits);
-    }
-  };
+    };
+    getHitsByQuery();
+  }, [searchValue, page]);
+  //сховище:
+  // useEffect(() => {
+  //   localStorage.setItem('hits', JSON.stringify(hits));
+  // }, [hits]);
+  // useEffect(() => {
+  //   const savedData = JSON.parse(localStorage.getItem('hits')) ?? [];
+  //   if (savedData !== 0) {
+  //     setHits(savedData);
+  //   }
+  // }, []);
 
-  render() {
-    return (
-      <div className="container">
-        <Searchbar handleSearch={this.handleSearch} />
-        {this.state.status === 'pending' && <Loader />}
-        {this.state.status === 'error' && (
-          <p>
-            Oops...your request was rejected with the error: {this.state.error}
-          </p>
-        )}
-        {this.state.searchValue !== '' ? (
-          <ImageGallery hits={this.state.hits} onOpenModal={this.onOpenModal} />
-        ) : (
-          <ImageGallery hits={[]} />
-        )}
+  return (
+    <div className="container">
+      <Searchbar handleSearch={handleSearch} />
+      {status === 'pending' && <Loader />}
+      {status === 'error' && (
+        <p>Oops...your request was rejected with the error: {error}</p>
+      )}
+      {searchValue !== '' ? (
+        <ImageGallery hits={hits} onOpenModal={onOpenModal} />
+      ) : (
+        <ImageGallery hits={[]} />
+      )}
 
-        {this.state.isVisibleLoadMoreBtn && this.state.searchValue !== '' && (
-          <Button onClick={this.onLoadMoreClick} />
-        )}
-        {this.state.isOpenModal && (
-          <Modal
-            tags={this.state.tags}
-            largeImageURL={this.state.largeImageURL}
-            onCloseModal={this.onCloseModal}
-          />
-        )}
-      </div>
-    );
-  }
-}
+      {isVisibleLoadMoreBtn && searchValue !== '' && (
+        <Button onClick={onLoadMoreClick} />
+      )}
+      {isOpenModal && (
+        <Modal
+          tags={tags}
+          largeImageURL={largeImageURL}
+          onCloseModal={onCloseModal}
+        />
+      )}
+    </div>
+  );
+};
