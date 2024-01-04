@@ -25,9 +25,9 @@ export const App = () => {
     setHits([]);
     setStatus('idle');
     setPage(1);
-    setLargeImageURL('');
-    setTags('');
-    setIsOpenModal(false);
+    // setLargeImageURL('');
+    // setTags('');
+    // setIsOpenModal(false);
     setIsVisibleLoadMoreBtn(false);
   };
   const onOpenModal = (largeImageURL, tags) => {
@@ -43,27 +43,7 @@ export const App = () => {
   };
 
   useEffect(() => {
-    if (hits.length === 0 || searchValue === '') {
-      return;
-    }
-    const getHits = async () => {
-      try {
-        setStatus('pending');
-        const { hits } = await getData();
-
-        setStatus('success');
-        setHits(hits);
-      } catch (error) {
-        setStatus('error');
-        setError(error.message);
-      }
-    };
-
-    getHits();
-  }, []);
-
-  useEffect(() => {
-    if (searchValue === 0) return;
+    if (searchValue === '') return;
     const getHitsByQuery = async () => {
       try {
         setStatus('pending');
@@ -109,15 +89,11 @@ export const App = () => {
       {status === 'error' && (
         <p>Oops...your request was rejected with the error: {error}</p>
       )}
-      {searchValue !== '' ? (
+      {hits.length > 0 && (
         <ImageGallery hits={hits} onOpenModal={onOpenModal} />
-      ) : (
-        <ImageGallery hits={[]} />
       )}
 
-      {isVisibleLoadMoreBtn && searchValue !== '' && (
-        <Button onClick={onLoadMoreClick} />
-      )}
+      {isVisibleLoadMoreBtn && <Button onClick={onLoadMoreClick} />}
       {isOpenModal && (
         <Modal
           tags={tags}
